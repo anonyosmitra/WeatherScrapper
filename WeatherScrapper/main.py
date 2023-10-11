@@ -12,11 +12,8 @@ class obj:
         self.timestamp = dt(date.year, date.month, date.day, int(self.timestamp[0]), int(self.timestamp[1]))
         self.hour = self.timestamp.hour
         self.minute = self.timestamp.minute
-        print(self.timestamp.strftime("%d/%m/%Y %H:%M"))
         self.temp = int(data['c'][2]['h'][:data['c'][2]['h'].find("&")])
-        print(str(self.temp) + "°C")
         self.weather = data["c"][3]["h"][:-1]
-        print(self.weather)
         self.windSpeed = data["c"][4]["h"][:data["c"][4]["h"].find(" ")]
         if self.windSpeed == "No":
             self.windSpeed = 0
@@ -38,9 +35,7 @@ def getForDate(city, country, date):
     a = a.replace("%d", date.strftime("%Y%m%d"))
     a = a.replace("%y", str(date.year))
     a = a.replace("%m", str(date.month))
-    print(a)
     resp = (requests.get(a)).text
-    print(resp)
     resp = re.sub(r'(?<![0-9"])(\w+|"\d+"):', lambda match: f'"{match.group(1)}":', resp)
     resp = json.loads(resp)
     dataset = []
