@@ -1,53 +1,90 @@
-import requests, json, re
-from datetime import timedelta as td
+import requests, json
 from datetime import datetime as dt
+from datetime import timedelta as td
 
 
-class obj:
-    def __init__(self, date, data):
-        self.year = date.year
-        self.month = date.month
-        self.date = date.day
-        self.timestamp = data["c"][0]["h"][:5].split(":")
-        self.timestamp = dt(date.year, date.month, date.day, int(self.timestamp[0]), int(self.timestamp[1]))
-        self.hour = self.timestamp.hour
-        self.minute = self.timestamp.minute
-        self.temp = int(data['c'][2]['h'][:data['c'][2]['h'].find("&")])
-        self.weather = data["c"][3]["h"][:-1]
-        self.windSpeed = data["c"][4]["h"][:data["c"][4]["h"].find(" ")]
-        if self.windSpeed == "No":
-            self.windSpeed = 0
-        else:
-            self.windSpeed = int(self.windSpeed)
-        self.humidity = int(data["c"][6]['h'][:-1])
-        self.pressure = int(data['c'][7]['h'][:data['c'][7]['h'].find(" ")])
-        self.visibility = data['c'][8]['h'][:data['c'][8]['h'].find("&")]
-        if self.visibility == "N/":
-            self.visibility = None
-        else:
-            self.visibility = int(self.visibility)
-urlTemp = "https://www.timeanddate.com/scripts/cityajax.php?n=%country/%city&mode=historic&hd=%d&month=%m&year=%y&json=1"
+class Obj:
+    def __init__(self):
+        pass
+    def to_dict(self):
+        r=self.__dict__
+        r["time"]=self.time.strftime("%Y%m%d %H:%M")
+        return r
+    def loadFromDict(time, day, temp, dewPoint, heat, humidity, pressure, visibility, wc, wdir, wspd, feel, uv, condition, show_condition=True):
+        o = Obj()
+        o.time = dt.strptime(time,"%Y%m%d %H:%M")
+        o.day = day
+        o.temp = temp
+        o.dewPoint = dewPoint
+        o.heat = heat
+        o.humidity = humidity
+        o.pressure = pressure
+        o.visibility = visibility
+        o.wc = wc
+        o.wdir = wdir
+        o.wspd = wspd
+        o.feel = feel
+        o.uv = uv
+        o.condition = None
+        if show_condition:
+            o.condition = condition
+        return o
+    def loadFromResp(payload, show_condition=True):
+        o = Obj()
+        o.time = dt.fromtimestamp(payload["valid_time_gmt"])
+        o.day = payload["day_ind"]
+        o.temp = payload["temp"]
+        o.dewPoint = payload["dewPt"]
+        o.heat = payload["heat_index"]
+        o.humidity = payload["rh"]
+        o.pressure = payload["pressure"]
+        o.visibility = payload["vis"]
+        o.wc = payload["wc"]
+        o.wdir = payload["wdir"]
+        o.wspd = payload["wspd"]
+        o.feel = payload["feels_like"]
+        o.uv = payload["uv_index"]
+        o.condition = None
+        if show_condition:
+            o.condition = payload["wx_phrase"]
+        return o
 
 
-def getForDate(city, country, date):
-    a = urlTemp.replace("%country", country)
-    a = a.replace("%city", city)
-    a = a.replace("%d", date.strftime("%Y%m%d"))
-    a = a.replace("%y", str(date.year))
-    a = a.replace("%m", str(date.month))
-    resp = (requests.get(a)).text
-    resp = re.sub(r'(?<![0-9"])(\w+|"\d+"):', lambda match: f'"{match.group(1)}":', resp)
-    resp = json.loads(resp)
-    dataset = []
-    for i in resp:
-        dataset.append(obj(date, i))
-    return dataset
+url = "https://api.weather.com/v1/location/EPWA:9:PL/observations/historical.json?apiKey=e1f10a1e78da46f5b10a1e78da96f525&units=m&startDate=%date"
+date = dt(2016, 12, 12, 0, 0, 0)
 
 
-def getDataset(city, country, fromDate, toDate):
+def scrapeFor(date):
+    payload = json.loads(requests.get(url.replace("%date", date.strftime("%Y%m%d"))).text)["observations"]
+    data = []
+    for i in payload:
+        data.append(Obj.loadFromResp(i))
+    return data
+
+def scrapeBetween(start, end):
     dataset = []
     delta = td(days=1)
-    while fromDate <= toDate:
-        dataset.extend(getForDate(city, country, fromDate))
-        fromDate = fromDate + delta
+    while start <= end:
+        dataset.extend(scrapeFor(start))
+        start = start + delta
     return dataset
+
+def writeToFile(data, name):
+    for i in range(len(data)):
+        if type(data[i]) == Obj:
+            data[i]=data[i].to_dict()
+    with open("%s.json" % name, 'w') as file:
+        json.dump(data, file)
+
+
+def readFromFile(name):
+    with open("%s.json" % name, 'r') as file:
+        data = json.load(file)
+        for i in range(len(data)):
+            data[i]=Obj.loadFromDict(**data[i])
+        return data
+
+
+#writeToFile(scrapeFor(date), "test");
+print(readFromFile("test")[0].__dict__)
+
