@@ -1,6 +1,7 @@
 import requests, json
-from datetime import datetime as dt
+from datetime import datetime as dt, datetime
 from datetime import timedelta as td
+from typing import Optional, Union
 
 
 class Obj:
@@ -10,7 +11,7 @@ class Obj:
         r=self.__dict__
         r["time"]=self.time.strftime("%Y%m%d %H:%M")
         return r
-    def loadFromDict(time, day, temp, dewPoint, heat, humidity, pressure, visibility, wc, wdir, wspd, feel, uv, condition, show_condition=True):
+    def loadFromDict(time:datetime, day, temp:float, dewPoint, heat, humidity, pressure, visibility, wc, wdir, wspd, feel, uv, condition, show_condition=True):
         o = Obj()
         o.time = dt.strptime(time,"%Y%m%d %H:%M")
         o.day = day
@@ -50,22 +51,23 @@ class Obj:
         return o
 
 
-url = "https://api.weather.com/v1/location/EPWA:9:PL/observations/historical.json?apiKey=e1f10a1e78da46f5b10a1e78da96f525&units=m&startDate=%date"
+url = "https://api.weather.com/v1/location/%area/observations/historical.json?apiKey=e1f10a1e78da46f5b10a1e78da96f525&units=m&startDate=%date"
 date = dt(2016, 12, 12, 0, 0, 0)
 
 
-def scrapeFor(date):
-    payload = json.loads(requests.get(url.replace("%date", date.strftime("%Y%m%d"))).text)["observations"]
+def scrapeFor(area:str,date:date):
+    print(date.strftime("%d/%m/%y"))
+    payload = json.loads(requests.get(url.replace("%date", date.strftime("%Y%m%d")).replace("%area",area)).text)["observations"]
     data = []
     for i in payload:
         data.append(Obj.loadFromResp(i))
     return data
 
-def scrapeBetween(start, end):
+def scrapeBetween(area:str,start:date, end:date):
     dataset = []
     delta = td(days=1)
     while start <= end:
-        dataset.extend(scrapeFor(start))
+        dataset.extend(scrapeFor(area,start))
         start = start + delta
     return dataset
 
@@ -84,7 +86,4 @@ def readFromFile(name):
             data[i]=Obj.loadFromDict(**data[i])
         return data
 
-
-#writeToFile(scrapeFor(date), "test");
-print(readFromFile("test")[0].__dict__)
 
